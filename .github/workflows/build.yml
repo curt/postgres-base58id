@@ -60,8 +60,7 @@ jobs:
             PG_MAJOR=${{ matrix.pg_major }} \
             VARIANT=${{ matrix.variant }} \
             PLATFORMS=${{ matrix.platform }} \
-            VERSION=${{ steps.version.outputs.version }} \
-            REGISTRY=${{ env.REGISTRY }}/${{ github.repository_owner }}
+            VERSION=${{ steps.version.outputs.version }}
 
       - name: Package artifacts
         run: |
