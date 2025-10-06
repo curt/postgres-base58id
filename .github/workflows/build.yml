@@ -19,9 +19,6 @@ on:
         required: true
         default: "alpine"
 
-env:
-  REGISTRY: ghcr.io
-
 jobs:
   build:
     runs-on: ubuntu-latest
