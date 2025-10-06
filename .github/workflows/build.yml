@@ -26,8 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pg_major: [15, 16, 17]
-        variant: [alpine, bookworm]
+        pg_major: [16, 17]
+        variant: [alpine]
         platform: [linux/amd64, linux/arm64]
 
     steps:
