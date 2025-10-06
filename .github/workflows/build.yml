@@ -2,18 +2,21 @@ name: Build and Release Extension
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+    paths:
+      - "extension/**"
+      - "version.json"
+      - ".github/workflows/build.yml"
   workflow_dispatch:
     inputs:
       pg_major:
-        description: 'PostgreSQL major version'
+        description: "PostgreSQL major version"
         required: true
-        default: '17'
+        default: "17"
       variant:
-        description: 'Image variant'
+        description: "Image variant"
         required: true
-        default: 'alpine'
+        default: "alpine"
 
 env:
   REGISTRY: ghcr.io
@@ -31,7 +34,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for NBGV
+          fetch-depth: 0 # Full history for NBGV
 
       - name: Setup Nerdbank.GitVersioning
         uses: dotnet/nbgv@v0.4
