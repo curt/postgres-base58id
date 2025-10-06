@@ -42,7 +42,7 @@ compile:
 	      make -C /src/extension; \
 	      make -C /src/extension install DESTDIR=/out; \
 	      chown -R $$(id -u):$$(id -g) /out 2>/dev/null || true \
-	    '; \
+	    ' || exit 1; \
 	done
 	echo "→ Compiled for all platforms"
 
