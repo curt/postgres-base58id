@@ -49,7 +49,7 @@ jobs:
       - name: Extract version and arch
         id: version
         run: |
-          echo "version=${{ steps.nbgv.outputs.Version }}" >> $GITHUB_OUTPUT
+          echo "version=${{ steps.nbgv.outputs.CloudBuildNumber }}" >> $GITHUB_OUTPUT
           ARCH=$(echo ${{ matrix.platform }} | cut -d/ -f2)
           echo "arch=$ARCH" >> $GITHUB_OUTPUT
 
