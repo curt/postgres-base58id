@@ -4,7 +4,7 @@
 PG_MAJOR        ?= 17
 VARIANT         ?= alpine
 PLATFORMS       ?= linux/arm64,linux/amd64
-VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VERSION         ?= $(shell nbgv get-version -v CloudBuildNumber 2>/dev/null || echo "dev")
 
 # Dev image from postgres-dev-builder project
 REGISTRY        ?= ghcr.io/curt

@@ -53,7 +53,10 @@ postgres-base58id/
 ### Prerequisites
 
 1. **Docker** with buildx support
-2. **Access to postgres-dev images** from project #1:
+2. **Nerdbank.GitVersioning (NBGV)** for version management:
+   - Install: `dotnet tool install -g nbgv`
+   - Generates version numbers from git history and [version.json](version.json)
+3. **Access to postgres-dev images** from project #1:
    - Either build locally: `cd ../postgres-dev-builder && make build-local`
    - Or use published images: `ghcr.io/yourorg/postgres-dev:17-alpine`
 
