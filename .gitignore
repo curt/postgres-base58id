@@ -1,0 +1,13 @@
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Build artifacts
+dist/
+releases/
+
+# Extension build artifacts
+extension/*.o
+extension/*.so
+extension/*.bc

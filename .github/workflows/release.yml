@@ -1,0 +1,98 @@
+name: Build and Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      pg_major:
+        description: 'PostgreSQL major version'
+        required: true
+        default: '17'
+      variant:
+        description: 'Image variant'
+        required: true
+        default: 'alpine'
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pg_major: [15, 16, 17]
+        variant: [alpine, bookworm]
+        platform: [linux/amd64, linux/arm64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          ARCH=$(echo ${{ matrix.platform }} | cut -d/ -f2)
+          echo "arch=$ARCH" >> $GITHUB_OUTPUT
+
+      - name: Build extension
+        run: |
+          make compile \
+            PG_MAJOR=${{ matrix.pg_major }} \
+            VARIANT=${{ matrix.variant }} \
+            PLATFORMS=${{ matrix.platform }} \
+            VERSION=${{ steps.version.outputs.version }} \
+            REGISTRY=${{ env.REGISTRY }}/${{ github.repository_owner }}
+
+      - name: Package artifacts
+        run: |
+          make package \
+            PG_MAJOR=${{ matrix.pg_major }} \
+            VARIANT=${{ matrix.variant }} \
+            PLATFORMS=${{ matrix.platform }} \
+            VERSION=${{ steps.version.outputs.version }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: base58id-${{ steps.version.outputs.version }}-pg${{ matrix.pg_major }}-${{ matrix.variant }}-${{ steps.version.outputs.arch }}
+          path: releases/*.tar.gz
+          retention-days: 90
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
