@@ -126,10 +126,15 @@ jobs:
           path: release-assets
 
       # Option A: Use gh CLI (simple; handles updates/clobber cleanly)
-      - name: Install gh
-        uses: cli/cli@v2
-        with:
-          version: latest
+      - name: Ensure gh CLI is available
+        shell: bash
+        run: |
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "gh not found; installing via apt..."
+            sudo apt-get update -y
+            sudo apt-get install -y gh
+          fi
+          gh --version
 
       - name: Create/Update GitHub Release
         env:
