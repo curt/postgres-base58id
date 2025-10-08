@@ -27,6 +27,8 @@ jobs:
         pg_major: [16, 17]
         variant: [alpine]
         platform: [linux/amd64, linux/arm64]
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout
@@ -35,8 +37,10 @@ jobs:
           fetch-depth: 0 # Full history for NBGV
 
       - name: Setup Nerdbank.GitVersioning
-        uses: dotnet/nbgv@v0.4
+        uses: dotnet/nbgv@v0.4.2
         id: nbgv
+        with:
+          setAllVars: true
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -77,23 +81,78 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-
     permissions:
-      contents: write
-
+      contents: write # push tags & create releases
+      actions: read # download artifacts
     steps:
-      - name: Download all artifacts
+      - name: Checkout (full history for tagging)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Resolve version
+        id: resolve
+        shell: bash
+        run: |
+          VER="${{ needs.build.outputs.version }}"
+          # Strip any +build metadata for the git tag (keep full VER elsewhere)
+          CLEAN="${VER%%+*}"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "clean_version=$CLEAN" >> "$GITHUB_OUTPUT"
+          echo "tag=v$CLEAN" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        shell: bash
+        run: |
+          TAG="${{ steps.resolve.outputs.tag }}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists; skipping."
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
+
+      # Pull back all matrix-produced artifacts for this version.
+      # Your artifact names look like:
+      #   base58id-<version>-pg<pg_major>-<variant>-<arch>
+      - name: Download release artifacts (all matrices)
         uses: actions/download-artifact@v4
         with:
-          path: artifacts/
+          pattern: base58id-${{ needs.build.outputs.version }}-*
+          merge-multiple: true
+          path: release-assets
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      # Option A: Use gh CLI (simple; handles updates/clobber cleanly)
+      - name: Install gh
+        uses: cli/cli@v2
         with:
-          files: artifacts/**/*.tar.gz
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+          version: latest
+
+      - name: Create/Update GitHub Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="${{ steps.resolve.outputs.tag }}"
+          VER="${{ steps.resolve.outputs.version }}"        # full version (may include '+')
+          CLEAN="${{ steps.resolve.outputs.clean_version }}" # stripped of build metadata
+
+          PRERELEASE_FLAG=""
+          # Mark prerelease if the cleaned version has a hyphen (e.g., 1.2.3-alpha.4)
+          if [[ "$CLEAN" == *"-"* ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists; will update assets."
+          else
+            gh release create "$TAG" $PRERELEASE_FLAG \
+              --title "v$CLEAN" \
+              --generate-notes
+          fi
+
+          # Upload everything downloaded into release-assets/
+          gh release upload "$TAG" release-assets/** --clobber
