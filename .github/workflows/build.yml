@@ -161,3 +161,64 @@ jobs:
 
           # Upload everything downloaded into release-assets/
           gh release upload "$TAG" release-assets/** --clobber
+
+  release-latest:
+    needs: [build, release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push tags & create releases
+      actions: read # download artifacts
+    steps:
+      - name: Checkout (full history for tagging)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      # Pull back all matrix-produced artifacts for this version.
+      - name: Download release artifacts (all matrices)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: base58id-${{ needs.build.outputs.version }}-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Create and force-push latest tag
+        shell: bash
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f -a "latest" -m "Latest release"
+          git push -f origin "latest"
+
+      - name: Ensure gh CLI is available
+        shell: bash
+        run: |
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "gh not found; installing via apt..."
+            sudo apt-get update -y
+            sudo apt-get install -y gh
+          fi
+          gh --version
+
+      - name: Create/Update GitHub Release for latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="latest"
+
+          # Delete existing release if it exists (to ensure clean state)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists; deleting to recreate."
+            gh release delete "$TAG" --yes
+          fi
+
+          # Create fresh release
+          gh release create "$TAG" \
+            --title "Latest Build" \
+            --notes "Latest stable build from main branch. This release is continuously updated with the most recent version." \
+            --latest
+
+          # Upload everything downloaded into release-assets/
+          gh release upload "$TAG" release-assets/** --clobber
