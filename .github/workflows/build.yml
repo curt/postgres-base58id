@@ -183,6 +183,19 @@ jobs:
           merge-multiple: true
           path: release-assets
 
+      - name: Rename artifacts to use 'latest' instead of version
+        shell: bash
+        run: |
+          cd release-assets
+          for file in *.tar.gz; do
+            if [[ -f "$file" ]]; then
+              # Replace version number with 'latest' in filename
+              newname=$(echo "$file" | sed "s/${{ needs.build.outputs.version }}/latest/g")
+              echo "Renaming $file -> $newname"
+              mv "$file" "$newname"
+            fi
+          done
+
       - name: Create and force-push latest tag
         shell: bash
         run: |
